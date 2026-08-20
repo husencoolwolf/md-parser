@@ -43,7 +43,7 @@ export async function renderMarkdown(rawMd, forLark = false) {
           const svg = await renderMermaidToSvg(code, `preview-${index}`)
           
           if (forLark) {
-            const png = await svgToPngDataUrl(svg)
+            const png = await svgToPngDataUrl(svg, `[id^="mermaid-preview-${index}"]`)
             return { index, content: png, type: 'img' }
           } else {
             return { index, content: svg, type: 'svg' }
