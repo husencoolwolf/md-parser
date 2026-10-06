@@ -4,6 +4,7 @@ import { renderMarkdown } from './composables/useMarkdown'
 import { copyHtmlToClipboard } from './composables/useClipboard'
 import { convertHtmlToMarkdown } from './composables/useHtmlToMarkdown'
 import { prepareForLark } from './utils/larkCompat'
+import { downloadLarkPdf, extractDocumentTitle } from './composables/usePdfExport'
 
 // Application Mode: 'md-to-lark' | 'lark-to-md'
 const currentMode = ref('md-to-lark')
@@ -46,6 +47,7 @@ const isConverting = ref(false)
 // --- Common UI State ---
 const showToast = ref(false)
 const toastMessage = ref('')
+const isGeneratingPdf = ref(false)
 let debounceTimer = null
 
 /**
@@ -87,6 +89,40 @@ const handleCopyToLark = async () => {
     notify('Failed to copy rich text. Please try again.', true)
   } finally {
     isRendering.value = false
+  }
+}
+
+/**
+ * Handles exporting and downloading the document as a Lark-styled PDF.
+ * @returns {Promise<void>}
+ */
+const handleDownloadPdf = async () => {
+  if (!markdownInput.value.trim()) {
+    notify('No content to export as PDF', true)
+    return
+  }
+
+  isGeneratingPdf.value = true
+  try {
+    // Prefer directly capturing the live, styled preview container for instant pixel-perfect rendering
+    const previewEl = document.querySelector('.preview-container .markdown-body')
+    const title = extractDocumentTitle(markdownInput.value)
+    let filename = ''
+
+    if (previewEl) {
+      filename = await downloadLarkPdf(previewEl, { title })
+    } else {
+      const larkHtml = await renderMarkdown(markdownInput.value, true)
+      const compatibleHtml = prepareForLark(larkHtml)
+      filename = await downloadLarkPdf(compatibleHtml, { title })
+    }
+
+    notify(`Downloaded ${filename}!`)
+  } catch (err) {
+    console.error('PDF export failed:', err)
+    notify('Failed to generate PDF. Please try again.', true)
+  } finally {
+    isGeneratingPdf.value = false
   }
 }
 
@@ -172,6 +208,42 @@ const handleDownloadMarkdown = () => {
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
   notify('Downloaded .md file!')
+}
+
+/**
+ * Handles exporting content from Lark mode to PDF.
+ * @returns {Promise<void>}
+ */
+const handleDownloadLarkPastePdf = async () => {
+  const hasPasteContent = larkPasteRef.value && larkPasteRef.value.innerHTML.trim()
+  const hasMd = convertedMarkdown.value.trim()
+
+  if (!hasPasteContent && !hasMd) {
+    notify('No Lark content to export as PDF', true)
+    return
+  }
+
+  isGeneratingPdf.value = true
+  try {
+    let filename = ''
+
+    if (hasMd) {
+      const rendered = await renderMarkdown(convertedMarkdown.value, true)
+      const html = prepareForLark(rendered)
+      const title = extractDocumentTitle(convertedMarkdown.value, 'lark-exported-doc')
+      filename = await downloadLarkPdf(html, { title })
+    } else if (hasPasteContent) {
+      const title = extractDocumentTitle(larkPasteRef.value.innerText, 'lark-exported-doc')
+      filename = await downloadLarkPdf(larkPasteRef.value, { title })
+    }
+
+    notify(`Downloaded ${filename}!`)
+  } catch (err) {
+    console.error('PDF export failed:', err)
+    notify('Failed to generate PDF. Please try again.', true)
+  } finally {
+    isGeneratingPdf.value = false
+  }
 }
 
 /**
@@ -264,6 +336,21 @@ onMounted(() => {
           <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
         </svg>
       </button>
+      <button
+        class="btn btn-outline"
+        @click="handleDownloadPdf"
+        :disabled="isRendering || isGeneratingPdf || !markdownInput.trim()"
+        title="Download Lark PDF"
+      >
+        <span v-if="isGeneratingPdf" class="btn-spinner"></span>
+        <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="12" y1="18" x2="12" y2="12"></line>
+          <polyline points="9 15 12 18 15 15"></polyline>
+        </svg>
+        {{ isGeneratingPdf ? 'Exporting...' : 'Download PDF' }}
+      </button>
       <button class="btn btn-primary" @click="handleCopyToLark" :disabled="isRendering">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -289,6 +376,21 @@ onMounted(() => {
           <line x1="12" y1="15" x2="12" y2="3"></line>
         </svg>
         Download .md
+      </button>
+      <button
+        class="btn btn-outline"
+        @click="handleDownloadLarkPastePdf"
+        :disabled="isGeneratingPdf || (!convertedMarkdown && !(larkPasteRef && larkPasteRef.innerHTML.trim()))"
+        title="Download Lark PDF"
+      >
+        <span v-if="isGeneratingPdf" class="btn-spinner"></span>
+        <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="12" y1="18" x2="12" y2="12"></line>
+          <polyline points="9 15 12 18 15 15"></polyline>
+        </svg>
+        {{ isGeneratingPdf ? 'Exporting...' : 'Download PDF' }}
       </button>
       <button class="btn btn-primary" @click="handleCopyMarkdown" :disabled="!convertedMarkdown">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
