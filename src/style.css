@@ -135,6 +135,36 @@ body {
   letter-spacing: normal;
 }
 
+.pane-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.pane-header-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem 0.4rem;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.pane-header-btn:hover {
+  color: var(--text);
+  background: #e2e8f0;
+  border-color: var(--border);
+}
+
+.pane-header-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
 .editor-container {
   flex: 1;
   position: relative;
@@ -191,6 +221,15 @@ body {
 .markdown-body {
   max-width: 800px;
   margin: 0 auto;
+}
+
+/* Maximized View Overrides */
+.has-maximized-pane .preview-container {
+  border-left: none;
+}
+
+.has-maximized-pane .markdown-body {
+  max-width: 1100px;
 }
 
 .markdown-body h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 24px; margin-bottom: 16px; font-weight: 600; line-height: 1.25; }

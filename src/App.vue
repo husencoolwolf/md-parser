@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { renderMarkdown } from './composables/useMarkdown'
 import { copyHtmlToClipboard } from './composables/useClipboard'
 import { convertHtmlToMarkdown } from './composables/useHtmlToMarkdown'
@@ -48,7 +48,36 @@ const isConverting = ref(false)
 const showToast = ref(false)
 const toastMessage = ref('')
 const isExportingPdf = ref(false)
+const isOutputPaneMaximized = ref(false)
 let debounceTimer = null
+
+/**
+ * Toggles the maximized state of the converted output pane.
+ * When maximized, the source input pane is hidden to grant full screen width to the output.
+ *
+ * @returns {void}
+ */
+const toggleMaximizeOutputPane = () => {
+  isOutputPaneMaximized.value = !isOutputPaneMaximized.value
+}
+
+/**
+ * Handles global keydown events to provide keyboard shortcut accessibility.
+ * Pressing 'Escape' restores the split view when the pane is maximized.
+ *
+ * @param {KeyboardEvent} event - Keyboard event object.
+ * @returns {void}
+ */
+const handleGlobalKeydown = (event) => {
+  if (event.key === 'Escape' && isOutputPaneMaximized.value) {
+    isOutputPaneMaximized.value = false
+  }
+}
+
+watch(currentMode, () => {
+  // Reset maximized state when user switches modes to prevent disorientation
+  isOutputPaneMaximized.value = false
+})
 
 /**
  * Updates the live Markdown to HTML preview.
@@ -265,6 +294,11 @@ const handleFileUpload = (event) => {
 
 onMounted(() => {
   updatePreview()
+  window.addEventListener('keydown', handleGlobalKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown)
 })
 </script>
 
@@ -381,10 +415,10 @@ onMounted(() => {
   </div>
 
   <!-- Main Split Pane Layout -->
-  <main class="main-content">
+  <main class="main-content" :class="{ 'has-maximized-pane': isOutputPaneMaximized }">
     <!-- MODE 1: Markdown -> Lark -->
     <template v-if="currentMode === 'md-to-lark'">
-      <section class="pane">
+      <section v-show="!isOutputPaneMaximized" class="pane">
         <div class="pane-header">
           <span>Markdown Editor</span>
           <span class="pane-header-hint">Supports Mermaid</span>
@@ -401,10 +435,30 @@ onMounted(() => {
         </div>
       </section>
 
-      <section class="pane">
+      <section class="pane pane-output" :class="{ 'is-maximized': isOutputPaneMaximized }">
         <div class="pane-header">
-          <span>Preview (Ready to Copy)</span>
-          <span class="pane-header-hint">Rich HTML</span>
+          <div class="pane-header-title">
+            <span>Preview (Ready to Copy)</span>
+            <span class="pane-header-hint">Rich HTML</span>
+          </div>
+          <button
+            class="pane-header-btn"
+            :title="isOutputPaneMaximized ? 'Restore split view (Esc)' : 'Maximize preview'"
+            @click="toggleMaximizeOutputPane"
+          >
+            <svg v-if="isOutputPaneMaximized" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="4 14 10 14 10 20"></polyline>
+              <polyline points="20 10 14 10 14 4"></polyline>
+              <line x1="14" y1="10" x2="21" y2="3"></line>
+              <line x1="3" y1="21" x2="10" y2="14"></line>
+            </svg>
+            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <polyline points="9 21 3 21 3 15"></polyline>
+              <line x1="21" y1="3" x2="14" y2="10"></line>
+              <line x1="3" y1="21" x2="10" y2="14"></line>
+            </svg>
+          </button>
         </div>
         <div class="preview-container">
           <div class="markdown-body" v-html="renderedHtml"></div>
@@ -414,7 +468,7 @@ onMounted(() => {
 
     <!-- MODE 2: Lark -> Markdown -->
     <template v-else>
-      <section class="pane">
+      <section v-show="!isOutputPaneMaximized" class="pane">
         <div class="pane-header">
           <span>Lark Paste Area</span>
           <span class="pane-header-hint">Paste rich text here (Cmd+V)</span>
@@ -431,10 +485,30 @@ onMounted(() => {
         </div>
       </section>
 
-      <section class="pane">
+      <section class="pane pane-output" :class="{ 'is-maximized': isOutputPaneMaximized }">
         <div class="pane-header">
-          <span>Converted Markdown</span>
-          <span class="pane-header-hint">GFM Output</span>
+          <div class="pane-header-title">
+            <span>Converted Markdown</span>
+            <span class="pane-header-hint">GFM Output</span>
+          </div>
+          <button
+            class="pane-header-btn"
+            :title="isOutputPaneMaximized ? 'Restore split view (Esc)' : 'Maximize markdown output'"
+            @click="toggleMaximizeOutputPane"
+          >
+            <svg v-if="isOutputPaneMaximized" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="4 14 10 14 10 20"></polyline>
+              <polyline points="20 10 14 10 14 4"></polyline>
+              <line x1="14" y1="10" x2="21" y2="3"></line>
+              <line x1="3" y1="21" x2="10" y2="14"></line>
+            </svg>
+            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <polyline points="9 21 3 21 3 15"></polyline>
+              <line x1="21" y1="3" x2="14" y2="10"></line>
+              <line x1="3" y1="21" x2="10" y2="14"></line>
+            </svg>
+          </button>
         </div>
         <div class="editor-container">
           <textarea
