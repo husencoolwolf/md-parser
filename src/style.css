@@ -303,3 +303,88 @@ body {
   from { transform: translate(-50%, 1rem); opacity: 0; }
   to { transform: translate(-50%, 0); opacity: 1; }
 }
+
+/* ==========================================================================
+   Print Styles for PDF Export
+   ========================================================================== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #24292f !important;
+    font-size: 11pt !important;
+    line-height: 1.6 !important;
+  }
+
+  /* Hide app navigation, toolbar, left editor pane, toast, and banners */
+  .app-header,
+  .mode-switcher,
+  .actions,
+  .pane:first-child,
+  .pane-header,
+  .info-banner,
+  .toast,
+  .loading-overlay {
+    display: none !important;
+  }
+
+  /* Reset main layout grid/flex into standard printable block flow */
+  .main-content {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .pane {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .preview-container {
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+  }
+
+  .markdown-body {
+    max-width: 100% !important;
+    color: #24292f !important;
+    background: transparent !important;
+    font-size: 11pt !important;
+    line-height: 1.6 !important;
+  }
+
+  /* Avoid breaking diagrams, tables, and code snippets across pages */
+  .mermaid-container,
+  table,
+  pre,
+  blockquote {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Avoid orphan headings at bottom of page */
+  h1, h2, h3, h4, h5, h6 {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  /* Ensure Mermaid diagrams scale properly within printable page width */
+  .mermaid-container svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+}
+

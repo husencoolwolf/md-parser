@@ -4,6 +4,7 @@ import { renderMarkdown } from './composables/useMarkdown'
 import { copyHtmlToClipboard } from './composables/useClipboard'
 import { convertHtmlToMarkdown } from './composables/useHtmlToMarkdown'
 import { prepareForLark } from './utils/larkCompat'
+import { exportElementToPdf } from './composables/usePdfExport'
 
 // Application Mode: 'md-to-lark' | 'lark-to-md'
 const currentMode = ref('md-to-lark')
@@ -46,6 +47,7 @@ const isConverting = ref(false)
 // --- Common UI State ---
 const showToast = ref(false)
 const toastMessage = ref('')
+const isExportingPdf = ref(false)
 let debounceTimer = null
 
 /**
@@ -87,6 +89,65 @@ const handleCopyToLark = async () => {
     notify('Failed to copy rich text. Please try again.', true)
   } finally {
     isRendering.value = false
+  }
+}
+
+/**
+ * Extracts a sanitized document title from the first Markdown heading (e.g. # Title).
+ * Used to provide the browser print engine with a clean suggested PDF filename.
+ *
+ * @param {string} markdown - Raw markdown input text.
+ * @returns {string} Sanitized title string suitable for filenames.
+ */
+const extractDocumentTitle = (markdown) => {
+  if (!markdown) {
+    return 'markdown-doc'
+  }
+  const headingMatch = markdown.match(/^#\s+(.+)$/m)
+  if (headingMatch && headingMatch[1]) {
+    return headingMatch[1]
+      .trim()
+      .replace(/[^a-zA-Z0-9_\-\s]/g, '')
+      .replace(/\s+/g, '_')
+  }
+  return 'markdown-doc'
+}
+
+/**
+ * Handles exporting the rendered Markdown preview as a PDF directly via client-side generation.
+ * Renders the preview DOM and diagrams to canvas and triggers automatic file download.
+ *
+ * @returns {Promise<void>}
+ */
+const handleExportPdf = async () => {
+  if (!markdownInput.value.trim()) {
+    notify('No markdown content to export', true)
+    return
+  }
+
+  if (isRendering.value) {
+    notify('Rendering diagrams, please wait...', true)
+    return
+  }
+
+  const previewElement = document.querySelector('.markdown-body')
+  if (!previewElement) {
+    notify('Preview element not found', true)
+    return
+  }
+
+  isExportingPdf.value = true
+  notify('Generating PDF, please wait...')
+
+  try {
+    const suggestedFilename = extractDocumentTitle(markdownInput.value)
+    await exportElementToPdf(previewElement, suggestedFilename)
+    notify('PDF downloaded successfully!')
+  } catch (err) {
+    console.error('Failed to export PDF:', err)
+    notify('Failed to generate PDF. Please try again.', true)
+  } finally {
+    isExportingPdf.value = false
   }
 }
 
@@ -264,6 +325,15 @@ onMounted(() => {
           <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
         </svg>
       </button>
+      <button class="btn btn-outline" @click="handleExportPdf" :disabled="isRendering || isExportingPdf" title="Download as PDF">
+        <span v-if="isExportingPdf" class="button-spinner"></span>
+        <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        {{ isExportingPdf ? 'Exporting...' : 'Export PDF' }}
+      </button>
       <button class="btn btn-primary" @click="handleCopyToLark" :disabled="isRendering">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -391,6 +461,16 @@ onMounted(() => {
   border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+}
+
+.button-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
 }
 
 @keyframes spin {
